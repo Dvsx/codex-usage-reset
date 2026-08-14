@@ -1,0 +1,70 @@
+{
+  "name": "codex-usage-companion",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Windows tray and title-bar companion for Codex personal usage limits.",
+  "type": "module",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:integration": "node scripts/probe-app-server.mjs",
+    "test:watch": "vitest",
+    "generate:splash": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-portable-splash.ps1",
+    "stage:codex": "node scripts/stage-codex.mjs",
+    "package:portable": "pnpm generate:splash && pnpm build && pnpm stage:codex && electron-builder --win portable --x64 --config.directories.output=.portable-staging && node scripts/publish-portable.mjs"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@openai/codex": "0.147.0",
+    "@types/node": "26.2.0",
+    "electron": "43.4.0",
+    "electron-builder": "26.14.0",
+    "electron-vite": "5.0.0",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10"
+  },
+  "build": {
+    "appId": "com.local.codex-usage-companion",
+    "productName": "Codex Usage Companion",
+    "artifactName": "Codex-Usage-Companion-${version}-portable.${ext}",
+    "icon": "resources/app-icon.ico",
+    "asar": true,
+    "electronDist": "node_modules/electron/dist",
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/codex-runtime",
+        "to": "codex-runtime"
+      },
+      {
+        "from": "resources/window-tracker.ps1",
+        "to": "window-tracker.ps1"
+      },
+      {
+        "from": "resources/app-icon.ico",
+        "to": "app-icon.ico"
+      },
+      {
+        "from": "THIRD_PARTY_NOTICES.md",
+        "to": "THIRD_PARTY_NOTICES.md"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "portable": {
+      "splashImage": "resources/portable-splash.bmp"
+    }
+  }
+}

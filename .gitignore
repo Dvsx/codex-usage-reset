@@ -1,0 +1,12 @@
+node_modules/
+out/
+dist/
+.portable-staging/
+build/codex-runtime/
+coverage/
+relay/dist/
+relay/data/
+relay/.env
+release/
+*.log
+.DS_Store

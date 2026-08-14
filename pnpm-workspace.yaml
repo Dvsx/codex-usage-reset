@@ -1,0 +1,7 @@
+packages: []
+allowBuilds:
+  electron: true
+  electron-winstaller: true
+  esbuild: true
+patchedDependencies:
+  app-builder-lib@26.14.0: patches/app-builder-lib@26.14.0.patch
