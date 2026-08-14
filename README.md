@@ -49,3 +49,13 @@ pnpm package:portable
 - 软件没有自建服务器、遥测或云端中继。
 
 本项目是非官方个人工具，与 OpenAI 或 X 无隶属或背书关系。第三方许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+
+## 赞助支持
+
+如果这个工具对你有帮助，欢迎赞助！
+微信扫码赞助：
+
+<p align="center">
+  <img src="assets/wechat-sponsor-qr.png" alt="微信赞助二维码" width="260">
+</p>
