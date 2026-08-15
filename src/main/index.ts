@@ -1,37 +1,40 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeImage, nativeTheme, Notification, screen, shell, Tray } from "electron";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { ControlState, TrackerState, UsageSnapshot } from "../shared/types";
+import type { ControlState, ResetRadarSnapshot, TrackerState, UsageSnapshot } from "../shared/types";
 import { DelayedHide } from "./delayed-hide";
 import { pillTopOffset } from "./overlay-position";
 import { SettingsStore } from "./settings-store";
+import { ResetRadarService } from "./reset-radar-service";
 import { UsageService } from "./usage-service";
 import { WindowTracker } from "./window-tracker";
 
 const PILL_WIDTH = 340, PILL_HEIGHT = 36, DETAIL_WIDTH = 388, DETAIL_MIN_HEIGHT = 396, DETAIL_MAX_HEIGHT = 520;
 const TRAY_MENU_WIDTH = 160, TRAY_MENU_HEIGHT = 176, CONTROL_WIDTH = 760, CONTROL_HEIGHT = 610, MIN_CODEX_WIDTH = 620;
-const HOVER_POLL_INTERVAL_MS = 40, DETAIL_HIDE_DELAY_MS = 90, TIBO_PROFILE_URL = "https://x.com/thsottiaux";
+const HOVER_POLL_INTERVAL_MS = 40, DETAIL_HIDE_DELAY_MS = 90;
 let pillWindow: BrowserWindow | null = null, detailWindow: BrowserWindow | null = null, trayMenuWindow: BrowserWindow | null = null, controlWindow: BrowserWindow | null = null, tray: Tray | null = null;
 let trackerState: TrackerState | null = null, pillHovered = false, detailHovered = false, overlayHoverTimer: NodeJS.Timeout | null = null, isQuitting = false, startupOutcomeNotified = false, detailHeight = DETAIL_MIN_HEIGHT;
 const delayedDetailHide = new DelayedHide(DETAIL_HIDE_DELAY_MS, () => { if (process.env.CODEX_USAGE_SHOW_DETAIL !== "1" && !pillHovered && !detailHovered) detailWindow?.hide(); });
 const usageService = new UsageService();
+const resetRadarService = new ResetRadarService();
 let settingsStore: SettingsStore;
 const windowTracker = new WindowTracker();
 
 if (!app.requestSingleInstanceLock()) app.quit();
 app.commandLine.appendSwitch("disable-background-timer-throttling");
 app.setAppUserModelId("com.local.codex-usage-companion");
-app.on("second-instance", () => { showControlCenter(); void usageService.refresh(); });
+app.on("second-instance", () => { showControlCenter(); void usageService.refresh(); void resetRadarService.refresh(); });
 app.whenReady().then(async () => {
   settingsStore = new SettingsStore(); await settingsStore.load();
   createOverlayWindows(); createTrayMenuWindow(); createControlWindow(); createTray(); registerIpc();
   if (!process.argv.includes("--autostart") || !settingsStore.get().launchMinimized) showControlCenter();
   showNotification("Codex Usage Companion 已启动", "正在读取当前账户额度，通常需要几秒钟。");
   usageService.on("updated", (snapshot: UsageSnapshot) => { broadcastSnapshot(snapshot); updateTray(snapshot); broadcastControlState(); notifyStartupOutcome(snapshot); });
+  resetRadarService.on("updated", (snapshot: ResetRadarSnapshot) => { broadcastResetRadar(snapshot); broadcastControlState(); });
   windowTracker.on("state", (state: TrackerState) => { trackerState = state; positionOverlay(); });
-  await usageService.start(); windowTracker.start();
+  await usageService.start(); await resetRadarService.start(); windowTracker.start();
 });
-app.on("before-quit", () => { usageService.stop(); windowTracker.stop(); });
+app.on("before-quit", () => { usageService.stop(); resetRadarService.stop(); windowTracker.stop(); });
 app.on("window-all-closed", () => undefined);
 
 function rendererOptions(): Electron.WebPreferences { return { preload: join(__dirname, "../preload/index.mjs"), contextIsolation: true, nodeIntegration: false, sandbox: false }; }
@@ -67,7 +70,7 @@ function positionOverlay(): void {
   if (!pillWindow.isVisible()) pillWindow.showInactive(); if (process.env.CODEX_USAGE_SHOW_DETAIL === "1") pillHovered = true; startOverlayHoverTracking(); updateDetailVisibility();
 }
 function hideOverlay(): void { pillWindow?.hide(); detailWindow?.hide(); detailWindow?.setIgnoreMouseEvents(true, { forward: true }); pillHovered = false; detailHovered = false; if (overlayHoverTimer) clearInterval(overlayHoverTimer); overlayHoverTimer = null; delayedDetailHide.cancel(); }
-function quitApplication(): void { if (isQuitting) return; isQuitting = true; delayedDetailHide.cancel(); usageService.stop(); windowTracker.stop(); tray?.destroy(); tray = null; for (const item of [pillWindow, detailWindow, trayMenuWindow, controlWindow]) if (item && !item.isDestroyed()) item.destroy(); pillWindow = detailWindow = trayMenuWindow = controlWindow = null; app.exit(0); }
+function quitApplication(): void { if (isQuitting) return; isQuitting = true; delayedDetailHide.cancel(); usageService.stop(); resetRadarService.stop(); windowTracker.stop(); tray?.destroy(); tray = null; for (const item of [pillWindow, detailWindow, trayMenuWindow, controlWindow]) if (item && !item.isDestroyed()) item.destroy(); pillWindow = detailWindow = trayMenuWindow = controlWindow = null; app.exit(0); }
 function isCursorInside(target: BrowserWindow): boolean { const cursor = screen.getCursorScreenPoint(), bounds = target.getBounds(); return cursor.x >= bounds.x && cursor.x <= bounds.x + bounds.width && cursor.y >= bounds.y && cursor.y <= bounds.y + bounds.height; }
 function syncOverlayHoverFromCursor(): void { if (!pillWindow?.isVisible() || !detailWindow) return; pillHovered = isCursorInside(pillWindow); detailHovered = detailWindow.isVisible() && isCursorInside(detailWindow); updateDetailVisibility(); }
 function startOverlayHoverTracking(): void { if (overlayHoverTimer) return; syncOverlayHoverFromCursor(); overlayHoverTimer = setInterval(syncOverlayHoverFromCursor, HOVER_POLL_INTERVAL_MS); }
@@ -75,18 +78,29 @@ function updateDetailVisibility(): void { if (!detailWindow || !pillWindow?.isVi
 
 function registerIpc(): void {
   ipcMain.handle("usage:getSnapshot", () => usageService.getSnapshot());
+  ipcMain.handle("reset-radar:get", () => resetRadarService.getSnapshot());
+  ipcMain.handle("reset-radar:refresh", () => resetRadarService.refresh());
+  ipcMain.handle("reset-radar:loadHistory", () => resetRadarService.loadHistory());
   ipcMain.handle("app:refresh", () => usageService.refresh()); ipcMain.handle("app:quit", () => quitApplication());
   ipcMain.handle("settings:get", () => settingsStore.get()); ipcMain.handle("settings:setAutoStart", async (_event, enabled: boolean) => { const next = await settingsStore.setAutoStart(Boolean(enabled)); broadcastControlState(); return next; });
   ipcMain.handle("control:getState", () => controlState()); ipcMain.handle("control:show", () => showControlCenter());
   ipcMain.handle("settings:update", async (_event, patch: unknown) => { await settingsStore.update(validateSettingsPatch(patch)); broadcastControlState(); return controlState(); });
-  ipcMain.handle("tibo:openProfile", async () => { await shell.openExternal(TIBO_PROFILE_URL); return true; });
+  ipcMain.handle("reset-radar:openSource", async (_event, value: unknown) => {
+    if (typeof value !== "string") return false;
+    try {
+      const url = new URL(value);
+      if (url.protocol !== "https:" || url.hostname !== "x.com") return false;
+      await shell.openExternal(url.href); return true;
+    } catch { return false; }
+  });
   ipcMain.handle("tools:exportDiagnostics", () => exportDiagnostics()); ipcMain.on("tray:hideMenu", () => trayMenuWindow?.hide());
   ipcMain.on("detail:setInteractiveHovered", (event, hovered: boolean) => { if (event.sender === detailWindow?.webContents) detailWindow?.setIgnoreMouseEvents(!hovered, { forward: true }); });
   ipcMain.on("detail:reportHeight", (event, requested: number) => { if (event.sender !== detailWindow?.webContents || !Number.isFinite(requested)) return; const next = Math.max(DETAIL_MIN_HEIGHT, Math.min(DETAIL_MAX_HEIGHT, Math.ceil(requested))); if (next !== detailHeight) { detailHeight = next; positionOverlay(); } });
   ipcMain.on("overlay:setHovered", (_event, surface: "pill" | "detail", hovered: boolean) => { if (surface === "pill") pillHovered = hovered; else detailHovered = hovered; updateDetailVisibility(); });
 }
 function broadcastSnapshot(snapshot: UsageSnapshot): void { pillWindow?.webContents.send("usage:updated", snapshot); detailWindow?.webContents.send("usage:updated", snapshot); }
-function controlState(): ControlState { return { usage: usageService.getSnapshot(), settings: settingsStore.get() }; }
+function broadcastResetRadar(snapshot: ResetRadarSnapshot): void { pillWindow?.webContents.send("reset-radar:updated", snapshot); detailWindow?.webContents.send("reset-radar:updated", snapshot); }
+function controlState(): ControlState { return { usage: usageService.getSnapshot(), resetRadar: resetRadarService.getSnapshot(), settings: settingsStore.get(), appVersion: app.getVersion() }; }
 function broadcastControlState(): void { controlWindow?.webContents.send("control:updated", controlState()); }
 function createTray(): void { const icon = nativeImage.createFromPath(resolveTrayIcon()).resize({ width: 16, height: 16 }); if (icon.isEmpty()) throw new Error("tray_icon_missing"); icon.setTemplateImage(false); tray = new Tray(icon); tray.setToolTip("Codex Usage Companion · 正在读取额度"); tray.on("click", showControlCenter); tray.on("right-click", showTrayMenu); }
 function resolveTrayIcon(): string { return app.isPackaged ? join(process.resourcesPath, "app-icon.ico") : join(__dirname, "../../resources/app-icon.ico"); }

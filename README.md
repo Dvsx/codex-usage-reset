@@ -7,7 +7,7 @@ Windows x64 的 Codex 个人额度悬浮监控工具。运行 Portable EXE 后�
 - 通过随软件携带的 Codex App Server 读取当前 ChatGPT 账户的个人额度窗口、重置时间、重置卡和最近 7 天 Token 趋势。
 - 个人额度启动后立即读取，此后每 1 分钟自动刷新一次；额度恢复时间到达时也会额外刷新。
 - 鼠标悬停顶部额度胶囊可展开详情；不会抢焦点或阻塞 Codex 标题栏拖动。
-- 详情页与控制中心提供 `Tibo 最新动态` 入口，点击后在浏览器打开 [@thsottiaux](https://x.com/thsottiaux) 的公开 X 主页。
+- 详情页提供“额度重置雷达”：读取 Codex Resets 的公开重置公告与第三方观察信号；控制中心可查看最近 20 条公开记录并打开原帖。该数据不是 OpenAI 官方承诺，不会改变或替代个人额度读取。
 - 控制中心提供概览、工具和设置；关闭窗口后继续驻留系统托盘。
 - 支持立即刷新、开机启动、开机时静默进入托盘和脱敏诊断导出。
 
@@ -15,7 +15,7 @@ Windows x64 的 Codex 个人额度悬浮监控工具。运行 Portable EXE 后�
 
 ## 使用
 
-1. 运行 `Codex-Usage-Companion-1.0.0-portable.exe`。
+1. 运行 `Codex-Usage-Companion-1.1.1-portable.exe`。
 2. 在 Codex 桌面端登录自己的 ChatGPT 账户。
 3. 将 Codex 切到前台，稍候即可看到标题栏中的个人额度胶囊。
 

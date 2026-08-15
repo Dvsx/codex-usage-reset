@@ -151,14 +151,17 @@ h1 { margin: 0; font: 600 18px/1.25 Bahnschrift, "Microsoft YaHei UI", sans-seri
 .usage-row.critical .meter i { background: var(--critical); }
 
 .credits { padding-top: 9px; border-top: 1px solid var(--line); }
-.tibo-latest { padding-top: 9px; border-top: 1px solid var(--line); }
-.tibo-latest p { margin: 6px 0 8px; color: var(--muted); font-size: 9px; line-height: 1.45; }
-.tibo-link { padding: 0; border: 0; background: transparent; color: var(--good); font: 600 9px/1.2 "Microsoft YaHei UI", sans-serif; cursor: pointer; -webkit-app-region: no-drag; }
-.tibo-link:hover { text-decoration: underline; }
-.reset-headline { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 6px; }
-.reset-headline strong { min-width: 0; overflow: hidden; font-size: 10px; line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; }
-.reset-headline span { flex: none; color: var(--muted); font-size: 8px; }
-.reset-source { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; color: var(--muted); font-size: 8px; }
+.reset-radar { display: grid; gap: 6px; padding-top: 9px; border-top: 1px solid var(--line); }
+.reset-radar--watch { border-top-color: color-mix(in srgb, var(--good) 35%, var(--line)); }
+.reset-radar > p { margin: 0; color: var(--muted); font-size: 9px; line-height: 1.45; }
+.radar-headline { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.radar-headline strong { min-width: 0; overflow: hidden; font-size: 10px; line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; }
+.radar-headline span { flex: none; color: var(--good); font: 650 10px/1 Bahnschrift, sans-serif; }
+.radar-copy { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.radar-meta { display: flex; align-items: center; justify-content: space-between; gap: 9px; color: var(--muted); font-size: 8px; }
+.radar-meta > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.radar-link { flex: none; padding: 0; border: 0; background: transparent; color: var(--good); font: 600 9px/1.2 "Microsoft YaHei UI", sans-serif; cursor: pointer; -webkit-app-region: no-drag; }
+.radar-link:hover { text-decoration: underline; }
 .source-link { color: var(--good); font-size: 9px; font-weight: 600; text-decoration: none; cursor: pointer; -webkit-app-region: no-drag; }
 .source-link:hover { text-decoration: underline; }
 .source-warning { color: var(--warn) !important; }
@@ -262,10 +265,18 @@ body[data-view="control"] #app { background: #f4f5f7; }
 .card-heading span { font-size: 11px; font-weight: 650; }
 .card-heading b { padding: 4px 7px; border-radius: 999px; background: var(--good-soft); color: var(--good); font-size: 8px; }
 .card-heading small { color: var(--muted); font-size: 8px; }
-.tibo-overview > div:last-child { display: grid; gap: 8px; padding-top: 14px; }
-.tibo-overview strong { font-size: 13px; }
-.tibo-overview p { max-width: 440px; margin: 0; color: var(--muted); font-size: 10px; line-height: 1.6; }
-.tibo-overview .secondary-button { justify-self: start; }
+.radar-overview-body { display: grid; gap: 12px; padding-top: 14px; }
+.radar-overview .reset-radar { padding-top: 0; border-top: 0; }
+.radar-overview .radar-copy { max-width: 540px; }
+.radar-actions { display: flex; gap: 8px; }
+.radar-detail { display: grid; gap: 12px; }
+.radar-detail .reset-radar { padding-top: 0; border-top: 0; }
+.reset-history { display: grid; gap: 0; padding-top: 4px; }
+.reset-history-item { display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; align-items: start; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--line); }
+.reset-history-item:last-child { border-bottom: 0; padding-bottom: 0; }
+.reset-history-item time { color: var(--muted); font: 500 9px/1.45 Bahnschrift, "Segoe UI Variable", sans-serif; }
+.reset-history-item p { display: -webkit-box; margin: 0; overflow: hidden; color: var(--ink); font-size: 10px; line-height: 1.55; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.reset-history-item .source-link { align-self: center; }
 .control-signal-empty, .large-empty { display: grid; min-height: 92px; place-content: center; justify-items: center; gap: 7px; color: var(--muted); font-size: 10px; text-align: center; }
 .control-signal-empty strong { color: var(--ink); font-size: 12px; }
 .control-signal { position: relative; display: grid; gap: 8px; padding-top: 14px; }
