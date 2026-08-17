@@ -2,6 +2,8 @@ $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Drawing
 
 $outputPath = Join-Path $PSScriptRoot "..\resources\portable-splash.bmp"
+$packagePath = Join-Path $PSScriptRoot "..\package.json"
+$appVersion = (Get-Content -Raw $packagePath | ConvertFrom-Json).version
 $width = 480
 $height = 260
 $bitmap = New-Object System.Drawing.Bitmap($width, $height, [System.Drawing.Imaging.PixelFormat]::Format24bppRgb)
@@ -31,7 +33,7 @@ $titleFont = New-Object System.Drawing.Font("Microsoft YaHei UI", 27, [System.Dr
 $bodyFont = New-Object System.Drawing.Font("Microsoft YaHei UI", 14, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
 $startupText = -join ([char[]](0x6B63, 0x5728, 0x542F, 0x52A8))
 $waitText = (-join ([char[]](0x6B63, 0x5728, 0x89E3, 0x538B, 0x8FD0, 0x884C, 0x7EC4, 0x4EF6, 0xFF0C, 0x8BF7, 0x7A0D, 0x5019))) + "..."
-$graphics.DrawString("CODEX USAGE COMPANION 1.0", $brandFont, (New-Object System.Drawing.SolidBrush($blue)), 42, 120)
+$graphics.DrawString("CODEX USAGE COMPANION $appVersion", $brandFont, (New-Object System.Drawing.SolidBrush($blue)), 42, 120)
 $graphics.DrawString($startupText, $titleFont, (New-Object System.Drawing.SolidBrush($ink)), 42, 150)
 $graphics.DrawString($waitText, $bodyFont, (New-Object System.Drawing.SolidBrush($muted)), 42, 198)
 

@@ -13,6 +13,16 @@ export class WindowTracker extends EventEmitter {
   private stopped = false;
 
   start(): void {
+    this.stopped = false;
+    this.spawnTracker();
+  }
+
+  restart(): void {
+    if (this.stopped) return;
+    const child = this.child;
+    this.child = null;
+    this.restartAttempt = 0;
+    if (child && !child.killed) child.kill();
     this.spawnTracker();
   }
 
