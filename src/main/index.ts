@@ -1,9 +1,9 @@
-import { app, BrowserWindow, dialog, ipcMain, nativeImage, nativeTheme, Notification, screen, shell, Tray } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, nativeImage, nativeTheme, Notification, powerMonitor, screen, shell, Tray } from "electron";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ControlState, ResetRadarSnapshot, TrackerState, UsageSnapshot } from "../shared/types";
 import { DelayedHide } from "./delayed-hide";
-import { pillTopOffset } from "./overlay-position";
+import { clampOverlayToWorkArea, pillTopOffset, type OverlayBounds } from "./overlay-position";
 import { SettingsStore } from "./settings-store";
 import { ResetRadarService } from "./reset-radar-service";
 import { UsageService } from "./usage-service";
@@ -11,9 +11,9 @@ import { WindowTracker } from "./window-tracker";
 
 const PILL_WIDTH = 340, PILL_HEIGHT = 36, DETAIL_WIDTH = 388, DETAIL_MIN_HEIGHT = 396, DETAIL_MAX_HEIGHT = 520;
 const TRAY_MENU_WIDTH = 160, TRAY_MENU_HEIGHT = 176, CONTROL_WIDTH = 760, CONTROL_HEIGHT = 610, MIN_CODEX_WIDTH = 620;
-const HOVER_POLL_INTERVAL_MS = 40, DETAIL_HIDE_DELAY_MS = 90;
+const HOVER_POLL_INTERVAL_MS = 40, DETAIL_HIDE_DELAY_MS = 90, OVERLAY_RECOVERY_INTERVAL_MS = 2_000, WAKE_RECOVERY_DELAY_MS = 750;
 let pillWindow: BrowserWindow | null = null, detailWindow: BrowserWindow | null = null, trayMenuWindow: BrowserWindow | null = null, controlWindow: BrowserWindow | null = null, tray: Tray | null = null;
-let trackerState: TrackerState | null = null, pillHovered = false, detailHovered = false, overlayHoverTimer: NodeJS.Timeout | null = null, isQuitting = false, startupOutcomeNotified = false, detailHeight = DETAIL_MIN_HEIGHT;
+let trackerState: TrackerState | null = null, pillHovered = false, detailHovered = false, overlayHoverTimer: NodeJS.Timeout | null = null, overlayRecoveryTimer: NodeJS.Timeout | null = null, wakeRecoveryTimer: NodeJS.Timeout | null = null, wakeTrackerRestartPending = false, isQuitting = false, startupOutcomeNotified = false, detailHeight = DETAIL_MIN_HEIGHT;
 const delayedDetailHide = new DelayedHide(DETAIL_HIDE_DELAY_MS, () => { if (process.env.CODEX_USAGE_SHOW_DETAIL !== "1" && !pillHovered && !detailHovered) detailWindow?.hide(); });
 const usageService = new UsageService();
 const resetRadarService = new ResetRadarService();
@@ -27,6 +27,7 @@ app.on("second-instance", () => { showControlCenter(); void usageService.refresh
 app.whenReady().then(async () => {
   settingsStore = new SettingsStore(); await settingsStore.load();
   createOverlayWindows(); createTrayMenuWindow(); createControlWindow(); createTray(); registerIpc();
+  registerDisplayRecovery();
   if (!process.argv.includes("--autostart") || !settingsStore.get().launchMinimized) showControlCenter();
   showNotification("Codex Usage Companion 已启动", "正在读取当前账户额度，通常需要几秒钟。");
   usageService.on("updated", (snapshot: UsageSnapshot) => { broadcastSnapshot(snapshot); updateTray(snapshot); broadcastControlState(); notifyStartupOutcome(snapshot); });
@@ -66,11 +67,45 @@ function positionOverlay(): void {
   const topLeft = screen.screenToDipPoint({ x: state.rect.left, y: state.rect.top }); const bottomRight = screen.screenToDipPoint({ x: state.rect.right, y: state.rect.bottom }); const codexWidth = bottomRight.x - topLeft.x;
   if (codexWidth < MIN_CODEX_WIDTH) return hideOverlay();
   const x = Math.round(topLeft.x + (codexWidth - PILL_WIDTH) / 2); const y = Math.round(topLeft.y + pillTopOffset(state.maximized));
-  pillWindow.setBounds({ x, y, width: PILL_WIDTH, height: PILL_HEIGHT }, false); detailWindow.setBounds({ x: Math.round(topLeft.x + (codexWidth - DETAIL_WIDTH) / 2), y: y + PILL_HEIGHT - 1, width: DETAIL_WIDTH, height: detailHeight }, false);
-  if (!pillWindow.isVisible()) pillWindow.showInactive(); if (process.env.CODEX_USAGE_SHOW_DETAIL === "1") pillHovered = true; startOverlayHoverTracking(); updateDetailVisibility();
+  const anchor = screen.getDisplayNearestPoint({ x: Math.round(topLeft.x + codexWidth / 2), y });
+  const pillBounds = clampOverlayToWorkArea({ x, y, width: PILL_WIDTH, height: PILL_HEIGHT }, anchor.workArea);
+  const detailBounds = clampOverlayToWorkArea({ x: Math.round(topLeft.x + (codexWidth - DETAIL_WIDTH) / 2), y: y + PILL_HEIGHT - 1, width: DETAIL_WIDTH, height: detailHeight }, anchor.workArea);
+  pillWindow.setBounds(pillBounds, false); detailWindow.setBounds(detailBounds, false);
+  if (!pillWindow.isVisible()) pillWindow.showInactive(); restoreOverlayStacking(); if (process.env.CODEX_USAGE_SHOW_DETAIL === "1") pillHovered = true; startOverlayHoverTracking(); updateDetailVisibility();
 }
 function hideOverlay(): void { pillWindow?.hide(); detailWindow?.hide(); detailWindow?.setIgnoreMouseEvents(true, { forward: true }); pillHovered = false; detailHovered = false; if (overlayHoverTimer) clearInterval(overlayHoverTimer); overlayHoverTimer = null; delayedDetailHide.cancel(); }
-function quitApplication(): void { if (isQuitting) return; isQuitting = true; delayedDetailHide.cancel(); usageService.stop(); resetRadarService.stop(); windowTracker.stop(); tray?.destroy(); tray = null; for (const item of [pillWindow, detailWindow, trayMenuWindow, controlWindow]) if (item && !item.isDestroyed()) item.destroy(); pillWindow = detailWindow = trayMenuWindow = controlWindow = null; app.exit(0); }
+function registerDisplayRecovery(): void {
+  const recoverDisplay = () => scheduleWakeRecovery(false);
+  screen.on("display-added", recoverDisplay); screen.on("display-removed", recoverDisplay); screen.on("display-metrics-changed", recoverDisplay);
+  powerMonitor.on("resume", () => scheduleWakeRecovery(true)); powerMonitor.on("unlock-screen", () => scheduleWakeRecovery(true));
+  overlayRecoveryTimer = setInterval(() => {
+    if (!trackerState?.active || !pillWindow || pillWindow.isDestroyed()) return;
+    const bounds = pillWindow.getBounds() as OverlayBounds;
+    const visible = screen.getAllDisplays().some((display) => containsBounds(display.workArea, bounds));
+    if (!pillWindow.isVisible() || !pillWindow.isAlwaysOnTop() || !visible) positionOverlay();
+    else restoreOverlayStacking();
+  }, OVERLAY_RECOVERY_INTERVAL_MS);
+}
+function scheduleWakeRecovery(restartTracker: boolean): void {
+  wakeTrackerRestartPending ||= restartTracker;
+  if (wakeRecoveryTimer) clearTimeout(wakeRecoveryTimer);
+  wakeRecoveryTimer = setTimeout(() => {
+    wakeRecoveryTimer = null;
+    const shouldRestartTracker = wakeTrackerRestartPending;
+    wakeTrackerRestartPending = false;
+    if (shouldRestartTracker) windowTracker.restart();
+    positionOverlay();
+  }, WAKE_RECOVERY_DELAY_MS);
+}
+function restoreOverlayStacking(): void {
+  for (const item of [pillWindow, detailWindow]) {
+    if (!item || item.isDestroyed()) continue;
+    item.setAlwaysOnTop(true, "floating");
+    if (item.isVisible()) item.moveTop();
+  }
+}
+function containsBounds(outer: OverlayBounds, inner: OverlayBounds): boolean { return inner.x >= outer.x && inner.y >= outer.y && inner.x + inner.width <= outer.x + outer.width && inner.y + inner.height <= outer.y + outer.height; }
+function quitApplication(): void { if (isQuitting) return; isQuitting = true; delayedDetailHide.cancel(); if (overlayRecoveryTimer) clearInterval(overlayRecoveryTimer); overlayRecoveryTimer = null; if (wakeRecoveryTimer) clearTimeout(wakeRecoveryTimer); wakeRecoveryTimer = null; usageService.stop(); resetRadarService.stop(); windowTracker.stop(); tray?.destroy(); tray = null; for (const item of [pillWindow, detailWindow, trayMenuWindow, controlWindow]) if (item && !item.isDestroyed()) item.destroy(); pillWindow = detailWindow = trayMenuWindow = controlWindow = null; app.exit(0); }
 function isCursorInside(target: BrowserWindow): boolean { const cursor = screen.getCursorScreenPoint(), bounds = target.getBounds(); return cursor.x >= bounds.x && cursor.x <= bounds.x + bounds.width && cursor.y >= bounds.y && cursor.y <= bounds.y + bounds.height; }
 function syncOverlayHoverFromCursor(): void { if (!pillWindow?.isVisible() || !detailWindow) return; pillHovered = isCursorInside(pillWindow); detailHovered = detailWindow.isVisible() && isCursorInside(detailWindow); updateDetailVisibility(); }
 function startOverlayHoverTracking(): void { if (overlayHoverTimer) return; syncOverlayHoverFromCursor(); overlayHoverTimer = setInterval(syncOverlayHoverFromCursor, HOVER_POLL_INTERVAL_MS); }
