@@ -20,10 +20,10 @@
 ## 先看实际界面
 
 <p align="center">
-  <img src="./assets/readme/control-center.png" width="92%" alt="Codex Usage Companion 控制中心，显示个人剩余额度、重置倒计时和公开重置雷达">
+  <a href="./assets/readme/control-center.png"><img src="./assets/readme/control-center.png" width="100%" alt="Codex 额度伴侣实际使用截图：标题栏额度胶囊与展开详情，显示个人剩余额度、重置倒计时、最近 7 天 Token 用量和公开重置雷达"></a>
 </p>
 
-<p align="center"><sub>控制中心：个人额度概览、公开重置雷达、工具和设置。</sub></p>
+<p align="center"><sub>标题栏额度胶囊与悬停详情。点击图片查看高清原图，额度与时间以应用内为准。</sub></p>
 
 ## 它解决什么
 
