@@ -73,7 +73,7 @@ pnpm package:portable
 
 ### 3. 开始使用
 
-1. 运行 `Codex-Usage-Companion-1.1.3-portable.exe`。
+1. 运行 `Codex-Usage-Companion-1.1.4-portable.exe`。
 2. 将 Codex 切到前台。
 3. 稍候几秒，标题栏顶部会出现个人额度胶囊；关闭控制中心后，应用仍会驻留系统托盘。
 
