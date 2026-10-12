@@ -1,5 +1,7 @@
-const MAXIMIZED_PILL_TOP_OFFSET = 6;
-const WINDOWED_PILL_TOP_OFFSET = 2;
+// Codex's compact title bar is 36 DIP high. The pill's visible CSS bounds
+// are y=3..31 inside its 36 DIP window, so +1 centers the visible capsule.
+const MAXIMIZED_PILL_TOP_OFFSET = 1;
+const WINDOWED_PILL_TOP_OFFSET = 1;
 
 export interface OverlayBounds {
   x: number;
