@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import { clampOverlayToWorkArea, pillTopOffset } from "../src/main/overlay-position";
 
 describe("overlay position", () => {
-  it("keeps the current maximized alignment", () => {
-    expect(pillTopOffset(true)).toBe(6);
+  it("centers the visible capsule in the compact maximized title bar", () => {
+    expect(pillTopOffset(true) + (3 + 31) / 2).toBe(36 / 2);
   });
 
-  it("moves the pill upward in a normal window", () => {
-    expect(pillTopOffset(false)).toBe(2);
+  it("centers the visible capsule in the compact normal title bar", () => {
+    expect(pillTopOffset(false) + (3 + 31) / 2).toBe(36 / 2);
   });
 
   it("brings an off-screen overlay back into the current work area", () => {

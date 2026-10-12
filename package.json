@@ -14,7 +14,7 @@
     "test:watch": "vitest",
     "generate:splash": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-portable-splash.ps1",
     "stage:codex": "node scripts/stage-codex.mjs",
-    "package:portable": "pnpm generate:splash && pnpm build && pnpm stage:codex && electron-builder --win portable --x64 --config.directories.output=.portable-staging && node scripts/publish-portable.mjs"
+    "package:portable": "pnpm build && pnpm stage:codex && electron-builder --win portable --x64 --config.directories.output=.portable-staging && node scripts/publish-portable.mjs"
   },
   "dependencies": {},
   "devDependencies": {
@@ -59,12 +59,11 @@
       "target": [
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
-    },
-    "portable": {
-      "splashImage": "resources/portable-splash.bmp"
     }
   }
 }
