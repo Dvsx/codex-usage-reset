@@ -11,10 +11,15 @@ export class WindowTracker extends EventEmitter {
   private child: ChildProcessByStdio<null, Readable, Readable> | null = null;
   private restartAttempt = 0;
   private stopped = false;
+  private lastStateAt = 0;
+  private watchdog: ReturnType<typeof setInterval> | null = null;
 
   start(): void {
     this.stopped = false;
     this.spawnTracker();
+    if (!this.watchdog) this.watchdog = setInterval(() => {
+      if (this.child && Date.now() - this.lastStateAt > 15_000) this.restart();
+    }, 2_000);
   }
 
   restart(): void {
@@ -28,6 +33,8 @@ export class WindowTracker extends EventEmitter {
 
   stop(): void {
     this.stopped = true;
+    if (this.watchdog) clearInterval(this.watchdog);
+    this.watchdog = null;
     const child = this.child;
     this.child = null;
     if (child && !child.killed) child.kill();
@@ -51,9 +58,13 @@ export class WindowTracker extends EventEmitter {
       { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] }
     );
     this.child = child;
+    this.lastStateAt = Date.now();
     createInterface({ input: child.stdout }).on("line", (line) => {
+      if (this.child !== child || this.stopped) return;
       try {
         const state = JSON.parse(line) as TrackerState;
+        if (typeof state.active !== "boolean") return;
+        this.lastStateAt = Date.now();
         this.restartAttempt = 0;
         this.emit("state", state);
       } catch {

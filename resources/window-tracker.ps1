@@ -118,6 +118,7 @@ public static class CodexWindowTracker
 
 [CodexWindowTracker]::EnablePerMonitorDpi()
 $last = ''
+$heartbeat = [System.Diagnostics.Stopwatch]::StartNew()
 $parentCheck = 0
 
 while ($true) {
@@ -154,10 +155,11 @@ while ($true) {
     }
 
     $json = $payload | ConvertTo-Json -Compress -Depth 4
-    if ($json -ne $last) {
+    if ($json -ne $last -or $heartbeat.ElapsedMilliseconds -ge 1000) {
         [Console]::Out.WriteLine($json)
         [Console]::Out.Flush()
         $last = $json
+        $heartbeat.Restart()
     }
     Start-Sleep -Milliseconds 33
 }

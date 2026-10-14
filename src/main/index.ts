@@ -33,7 +33,8 @@ app.whenReady().then(async () => {
   usageService.on("updated", (snapshot: UsageSnapshot) => { broadcastSnapshot(snapshot); updateTray(snapshot); broadcastControlState(); notifyStartupOutcome(snapshot); });
   resetRadarService.on("updated", (snapshot: ResetRadarSnapshot) => { broadcastResetRadar(snapshot); broadcastControlState(); });
   windowTracker.on("state", (state: TrackerState) => { trackerState = state; positionOverlay(); });
-  await usageService.start(); await resetRadarService.start(); windowTracker.start();
+  windowTracker.start();
+  await usageService.start(); await resetRadarService.start();
 });
 app.on("before-quit", () => { usageService.stop(); resetRadarService.stop(); windowTracker.stop(); });
 app.on("window-all-closed", () => undefined);
@@ -101,7 +102,7 @@ function restoreOverlayStacking(): void {
   for (const item of [pillWindow, detailWindow]) {
     if (!item || item.isDestroyed()) continue;
     item.setAlwaysOnTop(true, "floating");
-    if (item.isVisible()) item.moveTop();
+    if (item.isVisible()) { item.moveTop(); item.webContents.invalidate(); }
   }
 }
 function containsBounds(outer: OverlayBounds, inner: OverlayBounds): boolean { return inner.x >= outer.x && inner.y >= outer.y && inner.x + inner.width <= outer.x + outer.width && inner.y + inner.height <= outer.y + outer.height; }
