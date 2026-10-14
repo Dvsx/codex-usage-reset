@@ -15,7 +15,7 @@ export interface CompanionSettings { autoStart: boolean; launchMinimized: boolea
 export interface ControlState { usage: UsageSnapshot; resetRadar: ResetRadarSnapshot; settings: CompanionSettings; appVersion: string; }
 export interface DiagnosticExportResult { canceled: boolean; path: string | null; }
 export interface TrackerRect { left: number; top: number; right: number; bottom: number; }
-export interface TrackerState { active: boolean; hwnd: number; minimized: boolean; maximized: boolean; rect: TrackerRect | null; dpi: number; }
+export interface TrackerState { active: boolean; hwnd: number; minimized: boolean; maximized: boolean; rect: TrackerRect | null; dpi: number; captionCenterY?: number | null; }
 export interface CompanionApi {
   getSnapshot(): Promise<UsageSnapshot>;
   onUsageUpdated(listener: (snapshot: UsageSnapshot) => void): () => void;

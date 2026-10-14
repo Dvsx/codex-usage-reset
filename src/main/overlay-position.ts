@@ -1,5 +1,5 @@
-// Codex's compact title bar is 36 DIP high. The pill's visible CSS bounds
-// are y=3..31 inside its 36 DIP window, so +1 centers the visible capsule.
+// Legacy fallback only; measured content-region boundaries take precedence.
+// The pill's visible CSS bounds are y=3..31 inside its 36 DIP window.
 const MAXIMIZED_PILL_TOP_OFFSET = 1;
 const WINDOWED_PILL_TOP_OFFSET = 1;
 
@@ -10,7 +10,12 @@ export interface OverlayBounds {
   height: number;
 }
 
-export function pillTopOffset(maximized: boolean): number {
+export function pillTopOffset(maximized: boolean, captionCenterOffset?: number): number {
+  // Visible capsule center is 17 DIP (CSS inset 3px top, 5px bottom).
+  if (captionCenterOffset !== undefined && Number.isFinite(captionCenterOffset)
+      && captionCenterOffset >= 12 && captionCenterOffset <= 64) {
+    return Math.round(captionCenterOffset - 17);
+  }
   return maximized ? MAXIMIZED_PILL_TOP_OFFSET : WINDOWED_PILL_TOP_OFFSET;
 }
 

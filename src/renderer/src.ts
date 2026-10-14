@@ -127,7 +127,17 @@ function bindDetailInteractions(): void {
   for (const source of appRoot.querySelectorAll<HTMLElement>("[data-action='open-reset-source']")) source.addEventListener("click", () => { if (source.dataset.url) void window.codexUsage.openResetSource(source.dataset.url); });
 }
 function render(): void {
-  appRoot.innerHTML = view === "pill" ? pillHtml(snapshot) : view === "detail" ? detailHtml(snapshot) : view === "tray-menu" ? trayMenuHtml() : controlState ? controlHtml(controlState) : `<div class="control-loading"><span class="pulse"></span><strong>正在启动控制中心…</strong></div>`;
+  const html = view === "pill" ? pillHtml(snapshot) : view === "detail" ? detailHtml(snapshot) : view === "tray-menu" ? trayMenuHtml() : controlState ? controlHtml(controlState) : `<div class="control-loading"><span class="pulse"></span><strong>正在启动控制中心…</strong></div>`;
+  if (view === "pill" && appRoot.firstElementChild) {
+    const template = document.createElement("template");
+    template.innerHTML = html;
+    const next = template.content.firstElementChild!;
+    const current = appRoot.firstElementChild;
+    if (current.className !== next.className) current.className = next.className;
+    if (current.innerHTML !== next.innerHTML) current.innerHTML = next.innerHTML;
+  } else if (view === "detail" || appRoot.innerHTML !== html) {
+    appRoot.innerHTML = html;
+  }
   if (view === "detail") { bindDetailInteractions(); requestAnimationFrame(() => { const card = appRoot.querySelector<HTMLElement>(".detail-card"); if (!card) return; const style = getComputedStyle(card); const n = (value: string) => Number.parseFloat(value) || 0; const children = [...card.children] as HTMLElement[]; window.codexUsage.reportDetailHeight(Math.ceil(children.reduce((sum, child) => sum + child.getBoundingClientRect().height, 0) + Math.max(0, children.length - 1) * n(style.rowGap || style.gap) + n(style.paddingTop) + n(style.paddingBottom) + n(style.borderTopWidth) + n(style.borderBottomWidth) + 18)); }); }
 }
 

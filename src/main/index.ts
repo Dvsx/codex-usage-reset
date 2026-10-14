@@ -67,7 +67,7 @@ function positionOverlay(): void {
   if (!pillWindow || !detailWindow || !state?.active || state.minimized || !state.rect) return hideOverlay();
   const topLeft = screen.screenToDipPoint({ x: state.rect.left, y: state.rect.top }); const bottomRight = screen.screenToDipPoint({ x: state.rect.right, y: state.rect.bottom }); const codexWidth = bottomRight.x - topLeft.x;
   if (codexWidth < MIN_CODEX_WIDTH) return hideOverlay();
-  const x = Math.round(topLeft.x + (codexWidth - PILL_WIDTH) / 2); const y = Math.round(topLeft.y + pillTopOffset(state.maximized));
+  const x = Math.round(topLeft.x + (codexWidth - PILL_WIDTH) / 2); const y = Math.round(topLeft.y + pillTopOffset(state.maximized, state.captionCenterY == null ? undefined : (state.captionCenterY - state.rect.top) * 96 / state.dpi));
   const anchor = screen.getDisplayNearestPoint({ x: Math.round(topLeft.x + codexWidth / 2), y });
   const pillBounds = clampOverlayToWorkArea({ x, y, width: PILL_WIDTH, height: PILL_HEIGHT }, anchor.workArea);
   const detailBounds = clampOverlayToWorkArea({ x: Math.round(topLeft.x + (codexWidth - DETAIL_WIDTH) / 2), y: y + PILL_HEIGHT - 1, width: DETAIL_WIDTH, height: detailHeight }, anchor.workArea);
@@ -96,13 +96,14 @@ function scheduleWakeRecovery(restartTracker: boolean): void {
     wakeTrackerRestartPending = false;
     if (shouldRestartTracker) windowTracker.restart();
     positionOverlay();
+    pillWindow?.webContents.invalidate(); detailWindow?.webContents.invalidate();
   }, WAKE_RECOVERY_DELAY_MS);
 }
 function restoreOverlayStacking(): void {
   for (const item of [pillWindow, detailWindow]) {
     if (!item || item.isDestroyed()) continue;
     item.setAlwaysOnTop(true, "floating");
-    if (item.isVisible()) { item.moveTop(); item.webContents.invalidate(); }
+    if (item.isVisible()) item.moveTop();
   }
 }
 function containsBounds(outer: OverlayBounds, inner: OverlayBounds): boolean { return inner.x >= outer.x && inner.y >= outer.y && inner.x + inner.width <= outer.x + outer.width && inner.y + inner.height <= outer.y + outer.height; }
